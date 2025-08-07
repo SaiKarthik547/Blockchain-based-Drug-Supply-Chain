@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Authentication</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 500px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; padding: 15px; border-radius: 5px; margin: 10px 0; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        .danger { background: #dc3545; }
+        .danger:hover { background: #c82333; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 Authentication Reset Tool</h1>
+        
+        <div class="info">
+            <h3>Current localStorage Status:</h3>
+            <div id="status"></div>
+        </div>
+        
+        <button onclick="clearAll()" class="danger">🗑️ Clear All localStorage</button>
+        <button onclick="clearAuthOnly()">🔐 Clear Auth Data Only</button>
+        <button onclick="resetAuth()">🔄 Reset Auth System</button>
+        <button onclick="testAuth()">🧪 Test Authentication</button>
+        
+        <div id="output"></div>
+    </div>
+    
+    <script>
+        const USERS_KEY = 'chaintrackr_users';
+        const CURRENT_USER_KEY = 'chaintrackr_current_user';
+        const SESSION_KEY = 'chaintrackr_session';
+
+        function updateStatus() {
+            const status = document.getElementById('status');
+            const users = localStorage.getItem(USERS_KEY);
+            const currentUser = localStorage.getItem(CURRENT_USER_KEY);
+            const session = localStorage.getItem(SESSION_KEY);
+            
+            status.innerHTML = `
+                <p><strong>Users:</strong> ${users ? '✅ Found' : '❌ Not found'}</p>
+                <p><strong>Current User:</strong> ${currentUser ? '✅ Found' : '❌ Not found'}</p>
+                <p><strong>Session:</strong> ${session ? '✅ Found' : '❌ Not found'}</p>
+                <p><strong>Total localStorage items:</strong> ${Object.keys(localStorage).length}</p>
+            `;
+        }
+
+        function clearAll() {
+            localStorage.clear();
+            document.getElementById('output').innerHTML = '<div class="success">✅ All localStorage data cleared!</div>';
+            updateStatus();
+        }
+
+        function clearAuthOnly() {
+            localStorage.removeItem(USERS_KEY);
+            localStorage.removeItem(CURRENT_USER_KEY);
+            localStorage.removeItem(SESSION_KEY);
+            document.getElementById('output').innerHTML = '<div class="success">✅ Authentication data cleared!</div>';
+            updateStatus();
+        }
+
+        function resetAuth() {
+            // Clear auth data
+            localStorage.removeItem(USERS_KEY);
+            localStorage.removeItem(CURRENT_USER_KEY);
+            localStorage.removeItem(SESSION_KEY);
+            
+            // Reinitialize demo users
+            const demoUsers = [
+                {
+                    id: 'admin-001',
+                    username: 'admin',
+                    email: 'admin@pharmatrackindia.com',
+                    role: 'admin',
+                    name: 'System Administrator',
+                    organization: 'PharmaTrack India',
+                    createdAt: new Date('2024-01-01'),
+                    lastLogin: new Date(),
+                    isActive: true
+                },
+                {
+                    id: 'mfg-001',
+                    username: 'manufacturer',
+                    email: 'contact@manufacturer.com',
+                    role: 'manufacturer',
+                    name: 'Drug Manufacturer',
+                    organization: 'Pharma Manufacturing Ltd.',
+                    createdAt: new Date('2024-01-02'),
+                    lastLogin: new Date('2024-01-15'),
+                    isActive: true
+                },
+                {
+                    id: 'dist-001',
+                    username: 'distributor',
+                    email: 'ops@distributor.com',
+                    role: 'distributor',
+                    name: 'Drug Distributor',
+                    organization: 'Pharma Distribution Ltd.',
+                    createdAt: new Date('2024-01-03'),
+                    lastLogin: new Date('2024-01-20'),
+                    isActive: true
+                },
+                {
+                    id: 'pharm-001',
+                    username: 'pharmacy',
+                    email: 'manager@pharmacy.com',
+                    role: 'pharmacy',
+                    name: 'Local Pharmacy',
+                    organization: 'City Pharmacy Chain',
+                    createdAt: new Date('2024-01-04'),
+                    lastLogin: new Date('2024-01-25'),
+                    isActive: true
+                },
+                {
+                    id: 'cust-001',
+                    username: 'customer',
+                    email: 'customer@pharmatrackindia.com',
+                    role: 'customer',
+                    name: 'Customer User',
+                    organization: 'Individual Customer',
+                    createdAt: new Date('2024-01-05'),
+                    lastLogin: new Date('2024-01-30'),
+                    isActive: true
+                }
+            ];
+            
+            localStorage.setItem(USERS_KEY, JSON.stringify(demoUsers));
+            document.getElementById('output').innerHTML = '<div class="success">✅ Auth system reset with demo users!</div>';
+            updateStatus();
+        }
+
+        async function testAuth() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<div class="info">🧪 Testing authentication...</div>';
+            
+            // Simple test login
+            const users = JSON.parse(localStorage.getItem(USERS_KEY) || '[]');
+            const testUser = users.find(u => u.username === 'customer');
+            
+            if (testUser) {
+                output.innerHTML = '<div class="success">✅ Authentication test passed! Demo users are available.</div>';
+            } else {
+                output.innerHTML = '<div class="info">⚠️ No demo users found. Please reset the auth system.</div>';
+            }
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            updateStatus();
+        };
+    </script>
+</body>
+</html> 

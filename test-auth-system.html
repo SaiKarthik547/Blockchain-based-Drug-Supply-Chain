@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Auth System Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; }
+        .credentials { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; }
+    </style>
+</head>
+<body>
+    <h1>Authentication System Test</h1>
+    
+    <div class="credentials">
+        <h3>Demo Credentials:</h3>
+        <ul>
+            <li><strong>Admin:</strong> admin / admin123</li>
+            <li><strong>Manufacturers:</strong> cipla / cipla123, sunpharma / sunpharma123, drreddy / drreddy123</li>
+            <li><strong>Distributors:</strong> medplus / medplus123, alliance / alliance123, mckesson / mckesson123</li>
+            <li><strong>Pharmacies:</strong> apollo / apollo123, medpluspharm / medpluspharm123, pharmeasy / pharmeasy123</li>
+            <li><strong>Customer:</strong> customer / customer123</li>
+        </ul>
+    </div>
+    
+    <button onclick="clearStorage()">Clear localStorage</button>
+    <button onclick="testAllAccounts()">Test All Accounts</button>
+    <button onclick="testSingleAccount()">Test Single Account</button>
+    
+    <div id="output"></div>
+    
+    <script>
+        // Simplified auth functions for testing
+        const USERS_KEY = 'chaintrackr_users';
+        const CURRENT_USER_KEY = 'chaintrackr_current_user';
+        const SESSION_KEY = 'chaintrackr_session';
+
+        const convertUserDates = (user) => {
+            return {
+                ...user,
+                createdAt: new Date(user.createdAt),
+                lastLogin: new Date(user.lastLogin)
+            };
+        };
+
+        const initializeDemoUsers = () => {
+            const existingUsers = localStorage.getItem(USERS_KEY);
+            if (!existingUsers) {
+                const demoUsers = [
+                    {
+                        id: 'admin-001',
+                        username: 'admin',
+                        email: 'admin@pharmatrackindia.com',
+                        role: 'admin',
+                        name: 'System Administrator',
+                        organization: 'PharmaTrack India',
+                        createdAt: new Date('2024-01-01'),
+                        lastLogin: new Date(),
+                        isActive: true
+                    },
+                    {
+                        id: 'mfg-001',
+                        username: 'cipla',
+                        email: 'contact@cipla.com',
+                        role: 'manufacturer',
+                        name: 'Cipla Manufacturing',
+                        organization: 'Cipla Ltd.',
+                        createdAt: new Date('2024-01-02'),
+                        lastLogin: new Date('2024-01-15'),
+                        isActive: true
+                    },
+                    {
+                        id: 'mfg-002',
+                        username: 'sunpharma',
+                        email: 'contact@sunpharma.com',
+                        role: 'manufacturer',
+                        name: 'Sun Pharma Manufacturing',
+                        organization: 'Sun Pharmaceutical Industries Ltd.',
+                        createdAt: new Date('2024-01-03'),
+                        lastLogin: new Date('2024-01-16'),
+                        isActive: true
+                    },
+                    {
+                        id: 'mfg-003',
+                        username: 'drreddy',
+                        email: 'contact@drreddys.com',
+                        role: 'manufacturer',
+                        name: 'Dr. Reddy\'s Manufacturing',
+                        organization: 'Dr. Reddy\'s Laboratories Ltd.',
+                        createdAt: new Date('2024-01-04'),
+                        lastLogin: new Date('2024-01-17'),
+                        isActive: true
+                    },
+                    {
+                        id: 'dist-001',
+                        username: 'medplus',
+                        email: 'ops@medplus.com',
+                        role: 'distributor',
+                        name: 'MedPlus Distribution',
+                        organization: 'MedPlus Distribution Ltd.',
+                        createdAt: new Date('2024-01-05'),
+                        lastLogin: new Date('2024-01-20'),
+                        isActive: true
+                    },
+                    {
+                        id: 'dist-002',
+                        username: 'alliance',
+                        email: 'ops@alliancehealthcare.com',
+                        role: 'distributor',
+                        name: 'Alliance Healthcare Distribution',
+                        organization: 'Alliance Healthcare India',
+                        createdAt: new Date('2024-01-06'),
+                        lastLogin: new Date('2024-01-21'),
+                        isActive: true
+                    },
+                    {
+                        id: 'dist-003',
+                        username: 'mckesson',
+                        email: 'ops@mckessonindia.com',
+                        role: 'distributor',
+                        name: 'McKesson India Distribution',
+                        organization: 'McKesson India',
+                        createdAt: new Date('2024-01-07'),
+                        lastLogin: new Date('2024-01-22'),
+                        isActive: true
+                    },
+                    {
+                        id: 'pharm-001',
+                        username: 'apollo',
+                        email: 'manager@apollopharmacy.com',
+                        role: 'pharmacy',
+                        name: 'Apollo Pharmacy',
+                        organization: 'Apollo Pharmacy Chain',
+                        createdAt: new Date('2024-01-08'),
+                        lastLogin: new Date('2024-01-25'),
+                        isActive: true
+                    },
+                    {
+                        id: 'pharm-002',
+                        username: 'medpluspharm',
+                        email: 'manager@medpluspharmacy.com',
+                        role: 'pharmacy',
+                        name: 'MedPlus Pharmacy',
+                        organization: 'MedPlus Pharmacy Chain',
+                        createdAt: new Date('2024-01-09'),
+                        lastLogin: new Date('2024-01-26'),
+                        isActive: true
+                    },
+                    {
+                        id: 'pharm-003',
+                        username: 'pharmeasy',
+                        email: 'manager@pharmeasy.com',
+                        role: 'pharmacy',
+                        name: 'PharmEasy Pharmacy',
+                        organization: 'PharmEasy Retail',
+                        createdAt: new Date('2024-01-10'),
+                        lastLogin: new Date('2024-01-27'),
+                        isActive: true
+                    },
+                    {
+                        id: 'cust-001',
+                        username: 'customer',
+                        email: 'customer@pharmatrackindia.com',
+                        role: 'customer',
+                        name: 'Customer User',
+                        organization: 'Individual Customer',
+                        createdAt: new Date('2024-01-11'),
+                        lastLogin: new Date('2024-01-30'),
+                        isActive: true
+                    }
+                ];
+                
+                localStorage.setItem(USERS_KEY, JSON.stringify(demoUsers));
+                console.log('Demo users initialized');
+            }
+        };
+
+        const getUsers = () => {
+            initializeDemoUsers();
+            const users = localStorage.getItem(USERS_KEY);
+            if (!users) return [];
+            
+            try {
+                return JSON.parse(users).map(convertUserDates);
+            } catch (error) {
+                console.error('Error parsing users:', error);
+                localStorage.removeItem(USERS_KEY);
+                initializeDemoUsers();
+                const freshUsers = localStorage.getItem(USERS_KEY);
+                if (!freshUsers) return [];
+                return JSON.parse(freshUsers).map(convertUserDates);
+            }
+        };
+
+        const login = async (credentials) => {
+            try {
+                await new Promise(resolve => setTimeout(resolve, 100));
+                
+                const users = getUsers();
+                const user = users.find(u => u.username === credentials.username && u.isActive);
+                
+                if (!user) {
+                    return { success: false, error: 'Invalid username or password' };
+                }
+                
+                const passwordValid = credentials.password.length >= 4;
+                
+                if (!passwordValid) {
+                    return { success: false, error: 'Invalid username or password' };
+                }
+                
+                user.lastLogin = new Date();
+                const updatedUsers = users.map(u => u.id === user.id ? user : u);
+                localStorage.setItem(USERS_KEY, JSON.stringify(updatedUsers));
+                
+                const session = {
+                    userId: user.id,
+                    token: 'test-token-' + Date.now(),
+                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+                };
+                
+                localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+                localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+                
+                return { success: true, user };
+            } catch (error) {
+                console.error('Login error:', error);
+                return { success: false, error: 'Login failed' };
+            }
+        };
+
+        function clearStorage() {
+            localStorage.clear();
+            document.getElementById('output').innerHTML = '<div class="test-result success">localStorage cleared!</div>';
+        }
+
+        async function testAllAccounts() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<h3>Testing All Accounts:</h3>';
+            
+            const testAccounts = [
+                { username: 'admin', password: 'admin123' },
+                { username: 'cipla', password: 'cipla123' },
+                { username: 'sunpharma', password: 'sunpharma123' },
+                { username: 'drreddy', password: 'drreddy123' },
+                { username: 'medplus', password: 'medplus123' },
+                { username: 'alliance', password: 'alliance123' },
+                { username: 'mckesson', password: 'mckesson123' },
+                { username: 'apollo', password: 'apollo123' },
+                { username: 'medpluspharm', password: 'medpluspharm123' },
+                { username: 'pharmeasy', password: 'pharmeasy123' },
+                { username: 'customer', password: 'customer123' }
+            ];
+            
+            for (const account of testAccounts) {
+                const result = await login(account);
+                const className = result.success ? 'success' : 'error';
+                output.innerHTML += `<div class="test-result ${className}">
+                    <strong>${account.username}:</strong> ${result.success ? 'SUCCESS' : 'FAILED - ' + result.error}
+                </div>`;
+            }
+        }
+
+        async function testSingleAccount() {
+            const username = prompt('Enter username:');
+            const password = prompt('Enter password:');
+            
+            if (username && password) {
+                const result = await login({ username, password });
+                const output = document.getElementById('output');
+                const className = result.success ? 'success' : 'error';
+                output.innerHTML = `<div class="test-result ${className}">
+                    <strong>${username}:</strong> ${result.success ? 'SUCCESS' : 'FAILED - ' + result.error}
+                </div>`;
+            }
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            initializeDemoUsers();
+            document.getElementById('output').innerHTML = '<div class="test-result success">Auth system initialized. Ready for testing.</div>';
+        };
+    </script>
+</body>
+</html> 

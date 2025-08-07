@@ -1,0 +1,279 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fresh Auth Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; background: #f5f5f5; }
+        .container { max-width: 600px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .test-result { margin: 10px 0; padding: 10px; border-radius: 5px; }
+        .success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .info { background-color: #d1ecf1; color: #0c5460; border: 1px solid #bee5eb; }
+        button { padding: 10px 20px; margin: 5px; cursor: pointer; background: #007bff; color: white; border: none; border-radius: 4px; }
+        button:hover { background: #0056b3; }
+        input { padding: 8px; margin: 5px; border: 1px solid #ddd; border-radius: 4px; width: 200px; }
+        .credentials { background-color: #f8f9fa; padding: 15px; border-radius: 5px; margin: 20px 0; }
+        .log { background: #f8f9fa; padding: 10px; border-radius: 4px; font-family: monospace; font-size: 12px; max-height: 300px; overflow-y: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Fresh Authentication Test</h1>
+        
+        <div class="credentials">
+            <h3>Demo Credentials:</h3>
+            <ul>
+                <li><strong>Admin:</strong> admin / admin123</li>
+                <li><strong>Manufacturer:</strong> manufacturer / manufacturer123</li>
+                <li><strong>Distributor:</strong> distributor / distributor123</li>
+                <li><strong>Pharmacy:</strong> pharmacy / pharmacy123</li>
+                <li><strong>Customer:</strong> customer / customer123</li>
+            </ul>
+        </div>
+        
+        <button onclick="clearAll()">🗑️ Clear All localStorage</button>
+        <button onclick="forceReset()">🔄 Force Auth Reset</button>
+        <button onclick="testAllAccounts()">🧪 Test All Accounts</button>
+        <button onclick="showUsers()">👥 Show All Users</button>
+        
+        <div style="margin: 20px 0;">
+            <h3>Test Single Account:</h3>
+            <input type="text" id="testUsername" placeholder="Username" value="customer">
+            <input type="password" id="testPassword" placeholder="Password" value="customer123">
+            <button onclick="testSingleAccount()">Test Login</button>
+        </div>
+        
+        <div id="output"></div>
+        
+        <div class="log" id="log"></div>
+    </div>
+    
+    <script>
+        const USERS_KEY = 'chaintrackr_users';
+        const CURRENT_USER_KEY = 'chaintrackr_current_user';
+        const SESSION_KEY = 'chaintrackr_session';
+
+        function log(message) {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML += new Date().toLocaleTimeString() + ': ' + message + '\n';
+            logDiv.scrollTop = logDiv.scrollHeight;
+        }
+
+        const convertUserDates = (user) => {
+            return {
+                ...user,
+                createdAt: new Date(user.createdAt),
+                lastLogin: new Date(user.lastLogin)
+            };
+        };
+
+        const createFreshDemoUsers = () => {
+            return [
+                {
+                    id: 'admin-001',
+                    username: 'admin',
+                    email: 'admin@pharmatrackindia.com',
+                    role: 'admin',
+                    name: 'System Administrator',
+                    organization: 'PharmaTrack India',
+                    createdAt: new Date('2024-01-01'),
+                    lastLogin: new Date(),
+                    isActive: true
+                },
+                {
+                    id: 'mfg-001',
+                    username: 'manufacturer',
+                    email: 'contact@manufacturer.com',
+                    role: 'manufacturer',
+                    name: 'Drug Manufacturer',
+                    organization: 'Pharma Manufacturing Ltd.',
+                    createdAt: new Date('2024-01-02'),
+                    lastLogin: new Date('2024-01-15'),
+                    isActive: true
+                },
+                {
+                    id: 'dist-001',
+                    username: 'distributor',
+                    email: 'ops@distributor.com',
+                    role: 'distributor',
+                    name: 'Drug Distributor',
+                    organization: 'Pharma Distribution Ltd.',
+                    createdAt: new Date('2024-01-03'),
+                    lastLogin: new Date('2024-01-20'),
+                    isActive: true
+                },
+                {
+                    id: 'pharm-001',
+                    username: 'pharmacy',
+                    email: 'manager@pharmacy.com',
+                    role: 'pharmacy',
+                    name: 'Local Pharmacy',
+                    organization: 'City Pharmacy Chain',
+                    createdAt: new Date('2024-01-04'),
+                    lastLogin: new Date('2024-01-25'),
+                    isActive: true
+                },
+                {
+                    id: 'cust-001',
+                    username: 'customer',
+                    email: 'customer@pharmatrackindia.com',
+                    role: 'customer',
+                    name: 'Customer User',
+                    organization: 'Individual Customer',
+                    createdAt: new Date('2024-01-05'),
+                    lastLogin: new Date('2024-01-30'),
+                    isActive: true
+                }
+            ];
+        };
+
+        const initializeDemoUsers = () => {
+            log('🔄 FORCING FRESH DEMO USERS INITIALIZATION');
+            const demoUsers = createFreshDemoUsers();
+            localStorage.setItem(USERS_KEY, JSON.stringify(demoUsers));
+            log('✅ Fresh demo users created successfully');
+            log('👥 Available users: ' + demoUsers.map(u => u.username).join(', '));
+        };
+
+        const getUsers = () => {
+            const users = localStorage.getItem(USERS_KEY);
+            
+            if (!users) {
+                log('⚠️ No users found, creating fresh demo users');
+                initializeDemoUsers();
+                const freshUsers = localStorage.getItem(USERS_KEY);
+                if (!freshUsers) return [];
+                return JSON.parse(freshUsers).map(convertUserDates);
+            }
+            
+            try {
+                const parsedUsers = JSON.parse(users).map(convertUserDates);
+                log('📊 Loaded ' + parsedUsers.length + ' users from localStorage');
+                return parsedUsers;
+            } catch (error) {
+                log('❌ Error parsing users, creating fresh demo users: ' + error.message);
+                initializeDemoUsers();
+                const freshUsers = localStorage.getItem(USERS_KEY);
+                if (!freshUsers) return [];
+                return JSON.parse(freshUsers).map(convertUserDates);
+            }
+        };
+
+        const login = async (credentials) => {
+            try {
+                log('🔐 Login attempt for: ' + credentials.username);
+                const users = getUsers();
+                log('📊 Total users found: ' + users.length);
+                log('👥 Available usernames: ' + users.map(u => u.username).join(', '));
+                
+                const user = users.find(u => u.username === credentials.username && u.isActive === true);
+                log('🔍 Found user: ' + (user ? user.username : 'NOT FOUND'));
+                
+                if (!user) {
+                    log('❌ User not found or not active');
+                    return { success: false, error: 'Invalid username or password' };
+                }
+                
+                const passwordValid = credentials.password.length >= 4;
+                log('🔑 Password valid: ' + passwordValid);
+                
+                if (!passwordValid) {
+                    log('❌ Password validation failed');
+                    return { success: false, error: 'Invalid username or password' };
+                }
+                
+                user.lastLogin = new Date();
+                const updatedUsers = users.map(u => u.id === user.id ? user : u);
+                localStorage.setItem(USERS_KEY, JSON.stringify(updatedUsers));
+                
+                const session = {
+                    userId: user.id,
+                    token: 'test-token-' + Date.now(),
+                    expiresAt: new Date(Date.now() + 24 * 60 * 60 * 1000)
+                };
+                
+                localStorage.setItem(CURRENT_USER_KEY, JSON.stringify(user));
+                localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+                
+                log('✅ Login successful for: ' + user.username);
+                return { success: true, user };
+            } catch (error) {
+                log('❌ Login error: ' + error.message);
+                return { success: false, error: 'Login failed' };
+            }
+        };
+
+        function clearAll() {
+            localStorage.clear();
+            document.getElementById('output').innerHTML = '<div class="test-result success">✅ localStorage cleared!</div>';
+            log('localStorage cleared');
+        }
+
+        function forceReset() {
+            localStorage.removeItem(USERS_KEY);
+            localStorage.removeItem(CURRENT_USER_KEY);
+            localStorage.removeItem(SESSION_KEY);
+            initializeDemoUsers();
+            document.getElementById('output').innerHTML = '<div class="test-result success">✅ Auth system force reset!</div>';
+            log('Auth system force reset');
+        }
+
+        async function testAllAccounts() {
+            const output = document.getElementById('output');
+            output.innerHTML = '<h3>🧪 Testing All Accounts:</h3>';
+            
+            const testAccounts = [
+                { username: 'admin', password: 'admin123' },
+                { username: 'manufacturer', password: 'manufacturer123' },
+                { username: 'distributor', password: 'distributor123' },
+                { username: 'pharmacy', password: 'pharmacy123' },
+                { username: 'customer', password: 'customer123' }
+            ];
+            
+            for (const account of testAccounts) {
+                const result = await login(account);
+                const className = result.success ? 'success' : 'error';
+                output.innerHTML += `<div class="test-result ${className}">
+                    <strong>${account.username}:</strong> ${result.success ? '✅ SUCCESS' : '❌ FAILED - ' + result.error}
+                </div>`;
+            }
+        }
+
+        async function testSingleAccount() {
+            const username = document.getElementById('testUsername').value;
+            const password = document.getElementById('testPassword').value;
+            
+            if (username && password) {
+                const result = await login({ username, password });
+                const output = document.getElementById('output');
+                const className = result.success ? 'success' : 'error';
+                output.innerHTML = `<div class="test-result ${className}">
+                    <strong>${username}:</strong> ${result.success ? '✅ SUCCESS' : '❌ FAILED - ' + result.error}
+                </div>`;
+            }
+        }
+
+        function showUsers() {
+            const users = getUsers();
+            const output = document.getElementById('output');
+            output.innerHTML = '<h3>👥 All Users in localStorage:</h3>';
+            
+            users.forEach(user => {
+                output.innerHTML += `<div class="test-result info">
+                    <strong>${user.username}</strong> (${user.role}) - ${user.isActive ? '✅ Active' : '❌ Inactive'}
+                </div>`;
+            });
+        }
+
+        // Initialize on load
+        window.onload = function() {
+            log('🚀 Initializing fresh authentication system...');
+            initializeDemoUsers();
+            document.getElementById('output').innerHTML = '<div class="test-result success">✅ Fresh auth system initialized. Ready for testing.</div>';
+            log('Page loaded, fresh auth system ready');
+        };
+    </script>
+</body>
+</html> 
