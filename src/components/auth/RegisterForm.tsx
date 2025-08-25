@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Eye, EyeOff, UserPlus } from 'lucide-react'
+import { Eye, EyeOff, UserPlus, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { register, type RegisterData } from '@/utils/auth'
+import { registerUserOnBlockchain, isMetaMaskInstalled, connectMetaMask } from '@/utils/blockchain'
 
 interface RegisterFormProps {
   onSuccess: () => void
@@ -27,6 +28,7 @@ const RegisterForm = ({ onSuccess, onSwitchToLogin }: RegisterFormProps) => {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
+  const [registrationMethod, setRegistrationMethod] = useState<'traditional' | 'blockchain'>('traditional')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -60,10 +62,57 @@ const RegisterForm = ({ onSuccess, onSwitchToLogin }: RegisterFormProps) => {
     }
   }
 
+  const handleBlockchainRegister = async () => {
+    setIsLoading(true)
+    setError('')
+
+    try {
+      // Connect to MetaMask first
+      const address = await connectMetaMask()
+      
+      if (!address) {
+        setError('Failed to connect to MetaMask')
+        setIsLoading(false)
+        return
+      }
+
+      // Register user on blockchain
+      const success = await registerUserOnBlockchain(
+        address,
+        formData.name,
+        formData.organization,
+        formData.role as 'admin' | 'manufacturer' | 'distributor' | 'pharmacy' | 'customer'
+      )
+
+      if (success) {
+        // For demo purposes, we'll also create a traditional account
+        // In a real implementation, you might only use blockchain
+        const result = await register({
+          ...formData,
+          username: address, // Use wallet address as username
+          email: `${address}@blockchain.user`
+        })
+        
+        if (result.success) {
+          onSuccess()
+        } else {
+          setError(result.error || 'Registration completed on blockchain but failed locally')
+        }
+      } else {
+        setError('Failed to register on blockchain')
+      }
+    } catch (error: any) {
+      setError(error.message || 'An unexpected error occurred')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
   const roleOptions = [
     { value: 'manufacturer', label: 'Manufacturer', description: 'Create and manage drug batches' },
     { value: 'distributor', label: 'Distributor', description: 'Transfer drugs through supply chain' },
     { value: 'pharmacy', label: 'Pharmacy', description: 'Sell drugs to end customers' },
+    { value: 'customer', label: 'Customer', description: 'Purchase and verify drugs' },
     { value: 'regulator', label: 'Regulator', description: 'Monitor and oversee supply chain' }
   ]
 
@@ -86,147 +135,250 @@ const RegisterForm = ({ onSuccess, onSwitchToLogin }: RegisterFormProps) => {
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label htmlFor="username">Username</Label>
-              <Input
-                id="username"
-                type="text"
-                placeholder="Username"
-                value={formData.username}
-                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
-                required
-                className="bg-card/50 border-primary/30 focus:border-primary"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="Email address"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-                className="bg-card/50 border-primary/30 focus:border-primary"
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="name">Full Name</Label>
-            <Input
-              id="name"
-              type="text"
-              placeholder="Your full name"
-              value={formData.name}
-              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-              required
-              className="bg-card/50 border-primary/30 focus:border-primary"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="organization">Organization</Label>
-            <Input
-              id="organization"
-              type="text"
-              placeholder="Company or organization name"
-              value={formData.organization}
-              onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-              required
-              className="bg-card/50 border-primary/30 focus:border-primary"
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="role">Role</Label>
-            <Select
-              value={formData.role}
-              onValueChange={(value: any) => setFormData({ ...formData, role: value })}
-            >
-              <SelectTrigger className="bg-card/50 border-primary/30 focus:border-primary">
-                <SelectValue placeholder="Select your role" />
-              </SelectTrigger>
-              <SelectContent>
-                {roleOptions.map((role) => (
-                  <SelectItem key={role.value} value={role.value}>
-                    <div>
-                      <div className="font-medium">{role.label}</div>
-                      <div className="text-xs text-muted-foreground">{role.description}</div>
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
-              <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Create password"
-                value={formData.password}
-                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
-                className="bg-card/50 border-primary/30 focus:border-primary pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="confirmPassword">Confirm Password</Label>
-            <div className="relative">
-              <Input
-                id="confirmPassword"
-                type={showConfirmPassword ? 'text' : 'password'}
-                placeholder="Confirm password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                required
-                className="bg-card/50 border-primary/30 focus:border-primary pr-10"
-              />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-              >
-                {showConfirmPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
-            </div>
-          </div>
-
+        {/* Registration Method Toggle */}
+        <div className="flex rounded-md shadow-sm" role="group">
           <Button
-            type="submit"
-            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-pharmaceutical"
-            disabled={isLoading}
+            type="button"
+            variant={registrationMethod === 'traditional' ? 'default' : 'outline'}
+            className={`flex-1 rounded-r-none ${registrationMethod === 'traditional' ? '' : 'border-r-0'}`}
+            onClick={() => setRegistrationMethod('traditional')}
           >
-            {isLoading ? 'Creating Account...' : 'Create Account'}
+            Traditional Registration
           </Button>
-        </form>
+          <Button
+            type="button"
+            variant={registrationMethod === 'blockchain' ? 'default' : 'outline'}
+            className="flex-1 rounded-l-none"
+            onClick={() => setRegistrationMethod('blockchain')}
+          >
+            <Wallet className="h-4 w-4 mr-2" />
+            Blockchain Registration
+          </Button>
+        </div>
+
+        {registrationMethod === 'traditional' ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="username">Username</Label>
+                <Input
+                  id="username"
+                  type="text"
+                  placeholder="Username"
+                  value={formData.username}
+                  onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                  required
+                  className="bg-card/50 border-primary/30 focus:border-primary"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="Email address"
+                  value={formData.email}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                  required
+                  className="bg-card/50 border-primary/30 focus:border-primary"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="name">Full Name</Label>
+              <Input
+                id="name"
+                type="text"
+                placeholder="Your full name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                className="bg-card/50 border-primary/30 focus:border-primary"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="organization">Organization</Label>
+              <Input
+                id="organization"
+                type="text"
+                placeholder="Company or organization name"
+                value={formData.organization}
+                onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                required
+                className="bg-card/50 border-primary/30 focus:border-primary"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="role">Role</Label>
+              <Select
+                value={formData.role}
+                onValueChange={(value: any) => setFormData({ ...formData, role: value })}
+              >
+                <SelectTrigger className="bg-card/50 border-primary/30 focus:border-primary">
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roleOptions.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      <div>
+                        <div className="font-medium">{role.label}</div>
+                        <div className="text-xs text-muted-foreground">{role.description}</div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Create password"
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  required
+                  className="bg-card/50 border-primary/30 focus:border-primary pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="confirmPassword">Confirm Password</Label>
+              <div className="relative">
+                <Input
+                  id="confirmPassword"
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  placeholder="Confirm password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                  className="bg-card/50 border-primary/30 focus:border-primary pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-pharmaceutical"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Creating Account...' : 'Create Account'}
+            </Button>
+          </form>
+        ) : (
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="bc-name">Full Name</Label>
+              <Input
+                id="bc-name"
+                type="text"
+                placeholder="Your full name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+                className="bg-card/50 border-primary/30 focus:border-primary"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="bc-organization">Organization</Label>
+              <Input
+                id="bc-organization"
+                type="text"
+                placeholder="Company or organization name"
+                value={formData.organization}
+                onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                required
+                className="bg-card/50 border-primary/30 focus:border-primary"
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="bc-role">Role</Label>
+              <Select
+                value={formData.role}
+                onValueChange={(value: any) => setFormData({ ...formData, role: value })}
+              >
+                <SelectTrigger className="bg-card/50 border-primary/30 focus:border-primary">
+                  <SelectValue placeholder="Select your role" />
+                </SelectTrigger>
+                <SelectContent>
+                  {roleOptions.map((role) => (
+                    <SelectItem key={role.value} value={role.value}>
+                      <div>
+                        <div className="font-medium">{role.label}</div>
+                        <div className="text-xs text-muted-foreground">{role.description}</div>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="p-4 bg-muted/30 rounded-lg border border-primary/20">
+              <h3 className="font-medium text-primary mb-2">Blockchain Registration</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Register your account on the blockchain using MetaMask.
+                Your Ethereum address will be used as your identity.
+              </p>
+              
+              {!isMetaMaskInstalled() ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    MetaMask is not installed. Please install the MetaMask browser extension to continue.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Button
+                  onClick={handleBlockchainRegister}
+                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-pharmaceutical"
+                  disabled={isLoading}
+                >
+                  <Wallet className="h-4 w-4 mr-2" />
+                  {isLoading ? 'Registering...' : 'Register with Wallet'}
+                </Button>
+              )}
+            </div>
+            
+            <div className="text-center text-sm text-muted-foreground">
+              <p>By registering, you agree to our terms and conditions.</p>
+              <p className="mt-1">Your information will be stored on the blockchain.</p>
+            </div>
+          </div>
+        )}
       </CardContent>
 
       <CardFooter className="flex flex-col space-y-2">

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Eye, EyeOff, LogIn, Users } from 'lucide-react'
+import { Eye, EyeOff, LogIn, Users, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Separator } from '@/components/ui/separator'
 import { login, getDemoCredentials, type LoginCredentials } from '@/utils/auth'
+import { blockchainLogin, isMetaMaskInstalled } from '@/utils/blockchain'
 
 interface LoginFormProps {
   onSuccess: () => void
@@ -22,6 +23,7 @@ const LoginForm = ({ onSuccess, onSwitchToRegister }: LoginFormProps) => {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState('')
   const [showDemoCredentials, setShowDemoCredentials] = useState(false)
+  const [authMethod, setAuthMethod] = useState<'traditional' | 'blockchain'>('traditional')
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,6 +39,24 @@ const LoginForm = ({ onSuccess, onSwitchToRegister }: LoginFormProps) => {
       }
     } catch (error) {
       setError('An unexpected error occurred')
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleBlockchainLogin = async () => {
+    setIsLoading(true)
+    setError('')
+
+    try {
+      const result = await blockchainLogin()
+      if (result.success) {
+        onSuccess()
+      } else {
+        setError(result.error || 'Blockchain login failed')
+      }
+    } catch (error: any) {
+      setError(error.message || 'An unexpected error occurred')
     } finally {
       setIsLoading(false)
     }
@@ -68,56 +88,111 @@ const LoginForm = ({ onSuccess, onSwitchToRegister }: LoginFormProps) => {
           </Alert>
         )}
 
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
-            <Input
-              id="username"
-              type="text"
-              placeholder="Enter your username"
-              value={credentials.username}
-              onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
-              required
-              className="bg-card/50 border-primary/30 focus:border-primary"
-            />
-          </div>
+        {/* Authentication Method Toggle */}
+        <div className="flex rounded-md shadow-sm" role="group">
+          <Button
+            type="button"
+            variant={authMethod === 'traditional' ? 'default' : 'outline'}
+            className={`flex-1 rounded-r-none ${authMethod === 'traditional' ? '' : 'border-r-0'}`}
+            onClick={() => setAuthMethod('traditional')}
+          >
+            Traditional Login
+          </Button>
+          <Button
+            type="button"
+            variant={authMethod === 'blockchain' ? 'default' : 'outline'}
+            className="flex-1 rounded-l-none"
+            onClick={() => setAuthMethod('blockchain')}
+          >
+            <Wallet className="h-4 w-4 mr-2" />
+            Blockchain Login
+          </Button>
+        </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="password">Password</Label>
-            <div className="relative">
+        {authMethod === 'traditional' ? (
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-2">
+              <Label htmlFor="username">Username</Label>
               <Input
-                id="password"
-                type={showPassword ? 'text' : 'password'}
-                placeholder="Enter your password"
-                value={credentials.password}
-                onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                id="username"
+                type="text"
+                placeholder="Enter your username"
+                value={credentials.username}
+                onChange={(e) => setCredentials({ ...credentials, username: e.target.value })}
                 required
-                className="bg-card/50 border-primary/30 focus:border-primary pr-10"
+                className="bg-card/50 border-primary/30 focus:border-primary"
               />
-              <Button
-                type="button"
-                variant="ghost"
-                size="sm"
-                className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
-                onClick={() => setShowPassword(!showPassword)}
-              >
-                {showPassword ? (
-                  <EyeOff className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <Eye className="h-4 w-4 text-muted-foreground" />
-                )}
-              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="password">Password</Label>
+              <div className="relative">
+                <Input
+                  id="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Enter your password"
+                  value={credentials.password}
+                  onChange={(e) => setCredentials({ ...credentials, password: e.target.value })}
+                  required
+                  className="bg-card/50 border-primary/30 focus:border-primary pr-10"
+                />
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? (
+                    <EyeOff className="h-4 w-4 text-muted-foreground" />
+                  ) : (
+                    <Eye className="h-4 w-4 text-muted-foreground" />
+                  )}
+                </Button>
+              </div>
+            </div>
+
+            <Button
+              type="submit"
+              className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-pharmaceutical"
+              disabled={isLoading}
+            >
+              {isLoading ? 'Signing in...' : 'Sign In'}
+            </Button>
+          </form>
+        ) : (
+          <div className="space-y-4">
+            <div className="p-4 bg-muted/30 rounded-lg border border-primary/20">
+              <h3 className="font-medium text-primary mb-2">Blockchain Authentication</h3>
+              <p className="text-sm text-muted-foreground mb-3">
+                Connect your MetaMask wallet to authenticate with the blockchain.
+                Your Ethereum address will be used as your identity.
+              </p>
+              
+              {!isMetaMaskInstalled() ? (
+                <Alert variant="destructive">
+                  <AlertDescription>
+                    MetaMask is not installed. Please install the MetaMask browser extension to continue.
+                  </AlertDescription>
+                </Alert>
+              ) : (
+                <Button
+                  onClick={handleBlockchainLogin}
+                  className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-pharmaceutical"
+                  disabled={isLoading}
+                >
+                  <Wallet className="h-4 w-4 mr-2" />
+                  {isLoading ? 'Connecting...' : 'Connect Wallet'}
+                </Button>
+              )}
+            </div>
+            
+            <div className="text-center text-sm text-muted-foreground">
+              <p>By connecting, you agree to our terms and conditions.</p>
+              <p className="mt-1">Your wallet address will be used as your identity on the blockchain.</p>
             </div>
           </div>
-
-          <Button
-            type="submit"
-            className="w-full bg-primary text-primary-foreground hover:bg-primary/90 shadow-pharmaceutical"
-            disabled={isLoading}
-          >
-            {isLoading ? 'Signing in...' : 'Sign In'}
-          </Button>
-        </form>
+        )}
 
         <Separator className="my-4" />
 
@@ -132,7 +207,7 @@ const LoginForm = ({ onSuccess, onSwitchToRegister }: LoginFormProps) => {
             {showDemoCredentials ? 'Hide' : 'Show'} Demo Accounts
           </Button>
 
-          {showDemoCredentials && (
+          {showDemoCredentials && authMethod === 'traditional' && (
             <div className="space-y-2 p-3 bg-muted/30 rounded-lg border border-primary/20">
               <p className="text-sm text-muted-foreground mb-2">
                 Demo accounts for testing:

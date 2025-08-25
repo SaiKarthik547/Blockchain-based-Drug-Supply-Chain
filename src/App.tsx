@@ -23,11 +23,18 @@ const queryClient = new QueryClient();
 const App = () => {
   const [isAuth, setIsAuth] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   useEffect(() => {
     // Check authentication status on app load
     const checkAuth = () => {
-      setIsAuth(isAuthenticated());
+      const authStatus = isAuthenticated();
+      setIsAuth(authStatus);
+      
+      if (authStatus) {
+        setCurrentUser(getCurrentUser());
+      }
+      
       setIsLoading(false);
     };
     
@@ -36,10 +43,12 @@ const App = () => {
 
   const handleAuthSuccess = () => {
     setIsAuth(true);
+    setCurrentUser(getCurrentUser());
   };
 
   const handleLogout = () => {
     setIsAuth(false);
+    setCurrentUser(null);
   };
 
   if (isLoading) {
@@ -72,7 +81,7 @@ const App = () => {
         <Sonner />
         <BrowserRouter>
           <div className="min-h-screen">
-            <Navigation onLogout={handleLogout} />
+            <Navigation onLogout={handleLogout} currentUser={currentUser} />
             <Routes>
               <Route path="/" element={<Dashboard />} />
               <Route path="/track" element={<TrackDrug />} />

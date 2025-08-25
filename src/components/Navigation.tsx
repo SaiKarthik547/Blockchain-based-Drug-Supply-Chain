@@ -1,19 +1,18 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { Menu, X, Activity, Shield, Package, Truck, ShoppingCart, Info, QrCode, User, LogOut } from 'lucide-react'
+import { Menu, X, Activity, Shield, Package, Truck, ShoppingCart, Info, QrCode, User, LogOut, Wallet } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
-import { getCurrentUser, hasRole } from '@/utils/auth'
+import { hasRole } from '@/utils/auth'
 
 interface NavigationProps {
   onLogout: () => void
+  currentUser: any
 }
 
-const Navigation = ({ onLogout }: NavigationProps) => {
+const Navigation = ({ onLogout, currentUser }: NavigationProps) => {
   const [isOpen, setIsOpen] = useState(false)
-  const [showCSVImporter, setShowCSVImporter] = useState(false)
   const location = useLocation()
-  const user = getCurrentUser()
 
   const navigationItems = [
     { name: 'Dashboard', href: '/', icon: Activity },
@@ -46,16 +45,23 @@ const Navigation = ({ onLogout }: NavigationProps) => {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center space-x-1">
             {/* User Info */}
-            {user && (
+            {currentUser && (
               <div className="flex items-center space-x-2 px-3 py-1 bg-muted/50 rounded-lg text-xs text-muted-foreground">
-                <User className="h-3 w-3" />
-                <span>{user.name} ({user.role})</span>
+                {currentUser.isBlockchainUser ? (
+                  <Wallet className="h-3 w-3" />
+                ) : (
+                  <User className="h-3 w-3" />
+                )}
+                <span>{currentUser.name} ({currentUser.role})</span>
+                {currentUser.isBlockchainUser && (
+                  <span className="bg-green-500 text-white text-xs px-1 rounded">Blockchain</span>
+                )}
               </div>
             )}
             {navigationItems.map((item) => {
               const Icon = item.icon
               // Check if user has permission to see this item
-              if (item.role && !item.role.some(role => hasRole(role))) {
+              if (item.role && !item.role.some(role => currentUser?.role === role || currentUser?.role === 'admin')) {
                 return null
               }
               return (
@@ -105,16 +111,23 @@ const Navigation = ({ onLogout }: NavigationProps) => {
           <div className="md:hidden absolute left-0 right-0 top-16 bg-card/95 backdrop-blur-sm border-b border-primary/20 shadow-pharmaceutical">
             <div className="px-4 py-4 space-y-2">
               {/* Mobile User Info */}
-              {user && (
+              {currentUser && (
                 <div className="flex items-center space-x-2 px-4 py-2 bg-muted/50 rounded-lg text-sm text-muted-foreground mb-2">
-                  <User className="h-4 w-4" />
-                  <span>{user.name} ({user.role})</span>
+                  {currentUser.isBlockchainUser ? (
+                    <Wallet className="h-4 w-4" />
+                  ) : (
+                    <User className="h-4 w-4" />
+                  )}
+                  <span>{currentUser.name} ({currentUser.role})</span>
+                  {currentUser.isBlockchainUser && (
+                    <span className="bg-green-500 text-white text-xs px-1 rounded">Blockchain</span>
+                  )}
                 </div>
               )}
               {navigationItems.map((item) => {
                 const Icon = item.icon
                 // Check if user has permission to see this item
-                if (item.role && !item.role.some(role => hasRole(role))) {
+                if (item.role && !item.role.some(role => currentUser?.role === role || currentUser?.role === 'admin')) {
                   return null
                 }
                 return (

@@ -1,5 +1,6 @@
 // Authentication utilities with local storage
 import { v4 as uuidv4 } from 'uuid'
+import { isBlockchainAuthenticated, getCurrentBlockchainUser, blockchainLogout } from '@/utils/blockchain'
 
 export interface User {
   id: string
@@ -11,6 +12,9 @@ export interface User {
   createdAt: Date
   lastLogin: Date
   isActive: boolean
+  // Blockchain specific fields
+  blockchainAddress?: string
+  isBlockchainUser?: boolean
 }
 
 export interface LoginCredentials {
@@ -247,8 +251,30 @@ export const register = async (data: RegisterData): Promise<{ success: boolean; 
   }
 }
 
-// Get current user
+// Get current user (hybrid approach - checks both traditional and blockchain auth)
 export const getCurrentUser = (): User | null => {
+  // First check for blockchain authentication
+  if (isBlockchainAuthenticated()) {
+    const blockchainUser = getCurrentBlockchainUser()
+    if (blockchainUser) {
+      // Create a User object from blockchain data
+      return {
+        id: blockchainUser.address,
+        username: blockchainUser.address,
+        email: `${blockchainUser.address}@blockchain.user`,
+        role: blockchainUser.role,
+        name: blockchainUser.name,
+        organization: blockchainUser.organization,
+        createdAt: new Date(),
+        lastLogin: new Date(),
+        isActive: true,
+        blockchainAddress: blockchainUser.address,
+        isBlockchainUser: true
+      }
+    }
+  }
+  
+  // Fall back to traditional authentication
   const session = localStorage.getItem(SESSION_KEY)
   const currentUser = localStorage.getItem(CURRENT_USER_KEY)
   
@@ -270,8 +296,14 @@ export const getCurrentUser = (): User | null => {
   }
 }
 
-// Logout user
+// Logout user (hybrid approach)
 export const logout = () => {
+  // Logout from blockchain if authenticated
+  if (isBlockchainAuthenticated()) {
+    blockchainLogout()
+  }
+  
+  // Traditional logout
   localStorage.removeItem(CURRENT_USER_KEY)
   localStorage.removeItem(SESSION_KEY)
 }
@@ -282,12 +314,19 @@ export const resetAuth = () => {
   localStorage.removeItem(USERS_KEY)
   localStorage.removeItem(CURRENT_USER_KEY)
   localStorage.removeItem(SESSION_KEY)
+  blockchainLogout() // Also logout from blockchain
   initializeDemoUsers()
   console.log('✅ Authentication system completely reset')
 }
 
-// Check if user is authenticated
+// Check if user is authenticated (hybrid approach)
 export const isAuthenticated = (): boolean => {
+  // Check blockchain authentication first
+  if (isBlockchainAuthenticated()) {
+    return true
+  }
+  
+  // Fall back to traditional authentication
   return getCurrentUser() !== null
 }
 
